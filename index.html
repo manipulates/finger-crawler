@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Fingering Raurax Out</title>
+<style>
+  @font-face {
+    font-family: "Press Start 2P";
+    src: url("assets/PressStart2P.ttf") format("truetype");
+  }
+  html, body { margin: 0; height: 100%; background: #9869b9; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; touch-action: none; }
+  canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #fff;
+    box-shadow: 0 0 0 4px #5b3a7a, 0 0 0 8px #fff;
+  }
+</style>
+</head>
+<body>
+<canvas id="game" width="320" height="180"></canvas>
+<script src="game.js"></script>
+</body>
+</html>
