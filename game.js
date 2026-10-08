@@ -1,8 +1,8 @@
 "use strict";
 // Fingering Raurax Out: a pixel maze where the finger grows as you go.
-// Logical resolution is 320x180 and gets scaled up in whole-number steps.
+// Logical resolution is 480x270 and gets scaled up in whole-number steps.
 
-const W = 320, H = 180;
+const W = 480, H = 270;
 const PURPLE = "#9869b9", DARK = "#5b3a7a", WHITE = "#ffffff", FAINT = "#efe7f6";
 const SKIN = "#ffd9c4", OUTLINE = "#4a1f2c", CREASE = "#e9a98f", NAIL = "#f4a3a0";
 const FONT = '"Press Start 2P", monospace';
@@ -22,10 +22,44 @@ addEventListener("resize", resize);
 resize();
 
 // ---------- sprite ----------
-const girl = new Image();
-girl.src = "assets/girl.png";
-const GIRL_X = 0, GIRL_Y = H - 78;
-const ANCHOR = { x: 54, y: GIRL_Y + 30 }; // where the finger tube starts
+// girl.png is her body (drawn at 2x). Her original fingertip is drawn at the
+// head of the growing finger, rotated to face the way it moves.
+const SC = 2;
+const girl = new Image(); girl.src = "assets/girl.png";
+const GIRL_Y = H - 70 * SC;
+const ANCHOR = { x: 100, y: GIRL_Y + 80 }; // finger tube starts hidden behind her hand
+// The original fingertip (5x2 sprite pixels, cut from the art), pointing right.
+const TIP_PIXELS = [
+  ["#fedbc5", "#fed4be", "#ffd4c1", "#ffd1bf", "#5f282b"],
+  ["#562430", "#4c1d28", "#451822", "#86656c", null],
+];
+const tips = {}; // direction -> canvas
+// Tube cross-section: 1px outline above/left, 2px skin, 2px shade below/right.
+// Each tip canvas carries that same 1px outline so it joins the tube seamlessly.
+function buildTips() {
+  const w = 5, h = 2;
+  const make = (tw, th, map, outline) => {
+    const c = document.createElement("canvas"); c.width = tw * SC + (outline[0] ? 1 : 0) * 0 + (tw < th ? 1 : 0); c.height = th * SC + (tw < th ? 0 : 1);
+    const cc = c.getContext("2d");
+    const ox = tw < th ? 1 : 0, oy = tw < th ? 0 : 1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const col = TIP_PIXELS[y][x];
+      if (!col) continue;
+      const [tx, ty] = map(x, y);
+      cc.fillStyle = col;
+      cc.fillRect(tx * SC + ox, ty * SC + oy, SC, SC);
+    }
+    cc.fillStyle = OUTLINE;
+    if (tw < th) cc.fillRect(0, outline[1] * SC, 1, outline[2] * SC);
+    else cc.fillRect(outline[1] * SC, 0, outline[2] * SC, 1);
+    return c;
+  };
+  tips.right = make(w, h, (x, y) => [x, y], [1, 0, 4]);
+  tips.left  = make(w, h, (x, y) => [w - 1 - x, y], [1, 1, 4]);
+  tips.down  = make(h, w, (x, y) => [y, x], [1, 0, 4]);
+  tips.up    = make(h, w, (x, y) => [y, w - 1 - x], [1, 1, 4]);
+}
+buildTips();
 
 // ---------- audio ----------
 let actx = null, muted = false;
@@ -90,8 +124,8 @@ const state = {
 
 function levelSize(level) {
   return {
-    cols: Math.min(30, 10 + 2 * (level - 1)),
-    rows: Math.min(19, 7 + (level - 1)),
+    cols: Math.min(33, 10 + 2 * (level - 1)),
+    rows: Math.min(22, 7 + (level - 1)),
   };
 }
 
@@ -100,9 +134,9 @@ function startLevel(level) {
   const { cols, rows } = levelSize(level);
   st.level = level; st.best = Math.max(st.best, level);
   st.cols = cols; st.rows = rows;
-  st.cs = Math.min(Math.floor(250 / cols), Math.floor(152 / rows));
-  st.mx = 314 - cols * st.cs;
-  st.my = 24 + Math.floor((152 - rows * st.cs) / 2);
+  st.cs = Math.min(Math.floor(336 / cols), Math.floor(230 / rows));
+  st.mx = 472 - cols * st.cs;
+  st.my = 30 + Math.floor((236 - rows * st.cs) / 2);
   st.grid = generateMaze(cols, rows);
   st.entry = (Math.random() * rows) | 0;
   st.exit = (Math.random() * rows) | 0;
@@ -122,7 +156,7 @@ const cellCenter = (c) => ({
 function rebuildPts() {
   const st = state;
   const first = cellCenter(st.path[0]);
-  const corners = [{ x: ANCHOR.x, y: ANCHOR.y }, { x: 60, y: ANCHOR.y }, { x: 60, y: first.y }];
+  const corners = [{ x: ANCHOR.x, y: ANCHOR.y }, { x: 124, y: ANCHOR.y }, { x: 124, y: first.y }];
   st.path.forEach(c => corners.push(cellCenter(c)));
   const pts = [];
   for (let i = 0; i < corners.length - 1; i++) {
@@ -214,16 +248,16 @@ function update(dt) {
   if (st.mode === "play") {
     if (held.length) tryMove(held[held.length - 1]); else st.bumped = false;
     const target = st.pts.length - 1;
-    const speed = Math.max(90, st.cs * 9);
+    const speed = Math.max(120, st.cs * 9);
     if (st.len < target) st.len = Math.min(target, st.len + speed * dt);
     else if (st.len > target) st.len = Math.max(target, st.len - speed * 1.4 * dt);
     const head = st.path[st.path.length - 1];
     if (head.x === st.cols - 1 && head.y === st.exit && st.len >= target - 0.5) {
       st.mode = "win"; st.winT = 0; jingle();
-      for (let i = 0; i < 90; i++) {
+      for (let i = 0; i < 120; i++) {
         st.confetti.push({
-          x: 60 + Math.random() * 250, y: -Math.random() * 60,
-          vx: (Math.random() - 0.5) * 30, vy: 30 + Math.random() * 60,
+          x: 120 + Math.random() * 360, y: -Math.random() * 90,
+          vx: (Math.random() - 0.5) * 40, vy: 40 + Math.random() * 80,
           c: [PURPLE, DARK, SKIN, PURPLE][i & 3],
         });
       }
@@ -253,7 +287,7 @@ function drawBackground() {
 }
 
 function drawGirl() {
-  if (girl.complete && girl.naturalWidth) ctx.drawImage(girl, GIRL_X, GIRL_Y);
+  if (girl.complete && girl.naturalWidth) ctx.drawImage(girl, 0, GIRL_Y, girl.naturalWidth * SC, girl.naturalHeight * SC);
 }
 
 function drawMaze() {
@@ -281,61 +315,70 @@ function drawMaze() {
   ctx.fillRect(gx, gy - 2, 2, 2); ctx.fillRect(gx - 2, gy, 2, 2);
 }
 
+// Tube cross-section matches her sprite finger: 2px skin on top/left, 2px shade under/right.
 function drawFinger() {
   const st = state, pts = st.pts;
   const n = Math.min(pts.length, Math.floor(st.len) + 1);
   if (n < 1) return;
   ctx.fillStyle = OUTLINE;
-  for (let i = 0; i < n; i++) ctx.fillRect(pts[i].x - 2, pts[i].y - 2, 5, 5);
+  for (let i = 0; i < n; i++) ctx.fillRect(pts[i].x - 3, pts[i].y - 3, 5, 5);
   ctx.fillStyle = SKIN;
-  for (let i = 0; i < n; i++) ctx.fillRect(pts[i].x - 1, pts[i].y - 1, 3, 3);
+  for (let i = 0; i < n; i++) ctx.fillRect(pts[i].x - 2, pts[i].y - 2, 2, 2);
   // knuckle creases every so often
   ctx.fillStyle = CREASE;
-  for (let i = 40; i < n - 6; i += 36) {
+  for (let i = 60; i < n - 12; i += 54) {
     const a = pts[i - 1], b = pts[i + 1];
-    if (a.y === b.y && a.x !== b.x) ctx.fillRect(pts[i].x, pts[i].y - 1, 1, 3);
-    else if (a.x === b.x) ctx.fillRect(pts[i].x - 1, pts[i].y, 3, 1);
+    if (a.y === b.y) ctx.fillRect(pts[i].x, pts[i].y - 2, 1, 2);
+    else ctx.fillRect(pts[i].x - 2, pts[i].y, 2, 1);
   }
-  // fingernail on the tip
-  const t = pts[n - 1], p = pts[Math.max(0, n - 3)];
-  ctx.fillStyle = NAIL;
-  if (t.x !== p.x) ctx.fillRect(t.x - (t.x > p.x ? 0 : 1), t.y - 1, 2, 3);
-  else ctx.fillRect(t.x - 1, t.y - (t.y > p.y ? 0 : 1), 3, 2);
+  // the real fingertip rides at the head of the finger
+  const t = pts[n - 1], p = pts[Math.max(0, n - 4)];
+  let dir = state.tipDir || "right";
+  if (t.x > p.x) dir = "right"; else if (t.x < p.x) dir = "left";
+  else if (t.y > p.y) dir = "down"; else if (t.y < p.y) dir = "up";
+  state.tipDir = dir;
+  const img = tips[dir];
+  if (img) {
+    const horiz = dir === "right" || dir === "left";
+    ctx.drawImage(img, t.x - (horiz ? 5 : 3), t.y - (horiz ? 3 : 5));
+  }
 }
 
 function drawHUD() {
   const st = state;
-  text("LEVEL " + st.level, 66, 8, 8, PURPLE);
-  const cm = Math.round(st.len / 3);
-  text("FINGER " + cm + "CM", 314, 8, 8, PURPLE, "right");
+  text("LEVEL " + st.level, 136, 10, 8, PURPLE);
+  text("FINGER " + Math.round(st.len / 3) + "CM", 472, 10, 8, PURPLE, "right");
 }
 
 function drawTitle() {
   drawBackground();
   const bob = Math.sin(state.time * 3) > 0 ? 0 : 1;
-  text("FINGERING", 188, 18 + bob, 24, PURPLE, "center", DARK);
-  text("RAURAX OUT", 188, 50 + bob, 24, PURPLE, "center", DARK);
-  if ((state.time * 2 | 0) % 2 === 0) text("PRESS ANY KEY", 188, 90, 8, DARK, "center");
-  text("ARROWS / WASD TO MOVE", 188, 106, 8, PURPLE, "center");
-  text("DEAD END? BACK UP!", 188, 118, 8, PURPLE, "center");
-  // her finger keeps growing out of her hand along the bottom
-  const len = Math.floor((state.time * 40) % 250);
-  ctx.fillStyle = OUTLINE; ctx.fillRect(ANCHOR.x - 2, ANCHOR.y - 2, len + 4, 5);
-  ctx.fillStyle = SKIN; ctx.fillRect(ANCHOR.x - 1, ANCHOR.y - 1, len + 2, 3);
-  ctx.fillStyle = NAIL; ctx.fillRect(ANCHOR.x + len - 1, ANCHOR.y - 1, 2, 3);
+  const cx = 300;
+  text("FINGERING", cx, 30 + bob, 32, PURPLE, "center", DARK);
+  text("RAURAX OUT", cx, 76 + bob, 32, PURPLE, "center", DARK);
+  if ((state.time * 2 | 0) % 2 === 0) text("PRESS ANY KEY", cx, 134, 8, DARK, "center");
+  text("ARROWS / WASD TO MOVE", cx, 156, 8, PURPLE, "center");
+  text("DEAD END? BACK UP!", cx, 172, 8, PURPLE, "center");
+  // her finger keeps growing out of her hand
+  const len = Math.floor((state.time * 50) % 340);
+  ctx.fillStyle = OUTLINE; ctx.fillRect(ANCHOR.x - 3, ANCHOR.y - 3, len + 5, 5);
+  ctx.fillStyle = SKIN; ctx.fillRect(ANCHOR.x - 2, ANCHOR.y - 2, len + 2, 2);
+  ctx.drawImage(tips.right, ANCHOR.x + len - 5, ANCHOR.y - 3);
   drawGirl();
 }
 
 function drawWin() {
   const st = state;
-  rect(78, 52, 232, 78, DARK);
-  rect(80, 54, 228, 74, WHITE);
-  rect(84, 58, 220, 66, PURPLE);
-  rect(86, 60, 216, 62, WHITE);
-  text("FINGERING", 194, 66, 16, PURPLE, "center", DARK);
-  text("THINGS OUT!", 194, 86, 16, PURPLE, "center", DARK);
-  text("LEVEL " + st.level + " CLEARED", 194, 106, 8, DARK, "center");
-  if (st.winT > 0.8 && (st.time * 2 | 0) % 2 === 0) text("PRESS ANY KEY", 194, 116, 8, PURPLE, "center");
+  const x = 150, y = 70, w = 310, h = 130;
+  rect(x, y, w, h, DARK);
+  rect(x + 2, y + 2, w - 4, h - 4, WHITE);
+  rect(x + 6, y + 6, w - 12, h - 12, PURPLE);
+  rect(x + 8, y + 8, w - 16, h - 16, WHITE);
+  const cx = x + w / 2;
+  text("FINGERING", cx, y + 20, 24, PURPLE, "center", DARK);
+  text("THINGS OUT!", cx, y + 52, 24, PURPLE, "center", DARK);
+  text("LEVEL " + st.level + " CLEARED", cx, y + 90, 8, DARK, "center");
+  if (st.winT > 0.8 && (st.time * 2 | 0) % 2 === 0) text("PRESS ANY KEY", cx, y + 106, 8, PURPLE, "center");
   st.confetti.forEach(p => rect(p.x, p.y, 2, 2, p.c));
 }
 
