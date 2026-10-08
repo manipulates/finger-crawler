@@ -26,6 +26,7 @@ resize();
 // head of the growing finger, rotated to face the way it moves.
 const SC = 2;
 const girl = new Image(); girl.src = "assets/girl.png";
+const logo = new Image(); logo.src = "assets/logo.png";
 const GIRL_Y = H - 70 * SC;
 const ANCHOR = { x: 100, y: GIRL_Y + 80 }; // finger tube starts hidden behind her hand
 // The original fingertip (5x2 sprite pixels, cut from the art), pointing right.
@@ -290,6 +291,10 @@ function drawGirl() {
   if (girl.complete && girl.naturalWidth) ctx.drawImage(girl, 0, GIRL_Y, girl.naturalWidth * SC, girl.naturalHeight * SC);
 }
 
+function drawLogo(x, y, scale) {
+  if (logo.complete && logo.naturalWidth) ctx.drawImage(logo, x, y, logo.naturalWidth * scale, logo.naturalHeight * scale);
+}
+
 function drawMaze() {
   const { grid, cols, rows, cs, mx, my, entry, exit } = state;
   ctx.fillStyle = PURPLE;
@@ -354,11 +359,10 @@ function drawTitle() {
   drawBackground();
   const bob = Math.sin(state.time * 3) > 0 ? 0 : 1;
   const cx = 300;
-  text("FINGERING", cx, 30 + bob, 32, PURPLE, "center", DARK);
-  text("RAURAX OUT", cx, 76 + bob, 32, PURPLE, "center", DARK);
-  if ((state.time * 2 | 0) % 2 === 0) text("PRESS ANY KEY", cx, 134, 8, DARK, "center");
-  text("ARROWS / WASD TO MOVE", cx, 156, 8, PURPLE, "center");
-  text("DEAD END? BACK UP!", cx, 172, 8, PURPLE, "center");
+  drawLogo(cx - (logo.naturalWidth * 3 >> 1), 20 + bob * 2, 3);
+  if ((state.time * 2 | 0) % 2 === 0) text("PRESS ANY KEY", cx, 176, 8, DARK, "center");
+  text("ARROWS / WASD TO MOVE", cx, 198, 8, PURPLE, "center");
+  text("DEAD END? BACK UP!", cx, 214, 8, PURPLE, "center");
   // her finger keeps growing out of her hand
   const len = Math.floor((state.time * 50) % 340);
   ctx.fillStyle = OUTLINE; ctx.fillRect(ANCHOR.x - 3, ANCHOR.y - 3, len + 5, 5);
@@ -389,6 +393,7 @@ function draw() {
   drawMaze();
   drawFinger();
   drawGirl();
+  drawLogo(4, 24, 1); // always visible, above the girl
   drawHUD();
   if (st.mode === "win") drawWin();
 }
