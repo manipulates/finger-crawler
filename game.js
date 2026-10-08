@@ -318,10 +318,13 @@ function drawFinger() {
   const n = Math.min(pts.length, Math.floor(st.len) + 1);
   if (n < 1) return;
   ctx.fillStyle = OUTLINE;
-  // no top/left outline for the first few px, so it blends into her bare finger
+  // Over the first few px the shade eases from her sprite's thin underside up to the
+  // full tube, so the finger looks like it is attached rather than bolted on.
   for (let i = 0; i < n; i++) {
-    const o = i < 4 ? 2 : 3;
-    ctx.fillRect(pts[i].x - o, pts[i].y - o, o + 2, o + 2);
+    const { x, y } = pts[i];
+    if (i < 5) { ctx.fillStyle = "#8f5656"; ctx.fillRect(x - 2, y, 2, 1); }
+    else if (i < 10) { ctx.fillStyle = "#6a3a40"; ctx.fillRect(x - 2, y, 2, 2 * (i - 5) / 5 > 1 ? 2 : 1); }
+    else { ctx.fillStyle = OUTLINE; ctx.fillRect(x - 3, y - 3, 5, 5); }
   }
   ctx.fillStyle = SKIN;
   for (let i = 0; i < n; i++) ctx.fillRect(pts[i].x - 2, pts[i].y - 2, 2, 2);
