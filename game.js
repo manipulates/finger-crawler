@@ -9,6 +9,7 @@ const FONT = '"Press Start 2P", monospace';
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+ctx.scale(2, 2); // backing store is 2x so the hi-res sprite keeps its detail
 ctx.imageSmoothingEnabled = false;
 
 // ---------- sizing ----------
@@ -24,43 +25,31 @@ resize();
 // ---------- sprite ----------
 // girl.png is her body (drawn at 2x). Her original fingertip is drawn at the
 // head of the growing finger, rotated to face the way it moves.
-const SC = 2;
 const girl = new Image(); girl.src = "assets/girl.png";
 const logo = new Image(); logo.src = "assets/logo.png";
-const GIRL_Y = H - 70 * SC;
-const ANCHOR = { x: 100, y: GIRL_Y + 80 }; // finger tube starts hidden behind her hand
-// The original fingertip (5x2 sprite pixels, cut from the art), pointing right.
-const TIP_PIXELS = [
-  ["#fedbc5", "#fed4be", "#ffd4c1", "#ffd1bf", "#5f282b"],
-  ["#562430", "#4c1d28", "#451822", "#86656c", null],
-];
-const tips = {}; // direction -> canvas
-// Tube cross-section: 1px outline above/left, 2px skin, 2px shade below/right.
-// Each tip canvas carries that same 1px outline so it joins the tube seamlessly.
-function buildTips() {
-  const w = 5, h = 2;
-  const make = (tw, th, map, outline) => {
-    const c = document.createElement("canvas"); c.width = tw * SC + (outline[0] ? 1 : 0) * 0 + (tw < th ? 1 : 0); c.height = th * SC + (tw < th ? 0 : 1);
-    const cc = c.getContext("2d");
-    const ox = tw < th ? 1 : 0, oy = tw < th ? 0 : 1;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const col = TIP_PIXELS[y][x];
-      if (!col) continue;
-      const [tx, ty] = map(x, y);
-      cc.fillStyle = col;
-      cc.fillRect(tx * SC + ox, ty * SC + oy, SC, SC);
-    }
-    cc.fillStyle = OUTLINE;
-    if (tw < th) cc.fillRect(0, outline[1] * SC, 1, outline[2] * SC);
-    else cc.fillRect(outline[1] * SC, 0, outline[2] * SC, 1);
-    return c;
-  };
-  tips.right = make(w, h, (x, y) => [x, y], [1, 0, 4]);
-  tips.left  = make(w, h, (x, y) => [w - 1 - x, y], [1, 1, 4]);
-  tips.down  = make(h, w, (x, y) => [y, x], [1, 0, 4]);
-  tips.up    = make(h, w, (x, y) => [y, w - 1 - x], [1, 1, 4]);
+const GIRL_Y = H - 140;
+const ANCHOR = { x: 100, y: GIRL_Y + 79 }; // finger tube starts hidden behind her hand
+// The original fingertip, cut from the hi-res art (2x backing pixels), pointing right.
+// It is drawn at the head of the finger, flipped/transposed so the light edge stays up/left.
+const tipImg = new Image(); tipImg.src = "assets/tip.png";
+const TRANSFORMS = {
+  right: [1, 0, 0, 1],
+  left:  [-1, 0, 0, 1],
+  down:  [0, 1, 1, 0],
+  up:    [0, -1, 1, 0],
+};
+function drawTip(dir, x, y) {
+  if (!tipImg.complete || !tipImg.naturalWidth) return;
+  ctx.save();
+  ctx.translate(x, y);
+  const [a, b, c, d] = TRANSFORMS[dir];
+  ctx.transform(a, b, c, d, 0, 0);
+  ctx.fillStyle = OUTLINE;
+  ctx.fillRect(-5, -3, 8, 1); // 1px outline along the top edge, like the tube
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(tipImg, -5, -2, 10, 4);
+  ctx.restore();
 }
-buildTips();
 
 // ---------- audio ----------
 let actx = null, muted = false;
@@ -288,7 +277,10 @@ function drawBackground() {
 }
 
 function drawGirl() {
-  if (girl.complete && girl.naturalWidth) ctx.drawImage(girl, 0, GIRL_Y, girl.naturalWidth * SC, girl.naturalHeight * SC);
+  if (!(girl.complete && girl.naturalWidth)) return;
+  ctx.imageSmoothingEnabled = true; // hi-res art, drawn 1:1 on the 2x backing store
+  ctx.drawImage(girl, 0, GIRL_Y, girl.naturalWidth / 2, girl.naturalHeight / 2);
+  ctx.imageSmoothingEnabled = false;
 }
 
 function drawLogo(x, y, scale) {
@@ -342,11 +334,7 @@ function drawFinger() {
   if (t.x > p.x) dir = "right"; else if (t.x < p.x) dir = "left";
   else if (t.y > p.y) dir = "down"; else if (t.y < p.y) dir = "up";
   state.tipDir = dir;
-  const img = tips[dir];
-  if (img) {
-    const horiz = dir === "right" || dir === "left";
-    ctx.drawImage(img, t.x - (horiz ? 5 : 3), t.y - (horiz ? 3 : 5));
-  }
+  drawTip(dir, t.x, t.y);
 }
 
 function drawHUD() {
@@ -367,7 +355,7 @@ function drawTitle() {
   const len = Math.floor((state.time * 50) % 340);
   ctx.fillStyle = OUTLINE; ctx.fillRect(ANCHOR.x - 3, ANCHOR.y - 3, len + 5, 5);
   ctx.fillStyle = SKIN; ctx.fillRect(ANCHOR.x - 2, ANCHOR.y - 2, len + 2, 2);
-  ctx.drawImage(tips.right, ANCHOR.x + len - 5, ANCHOR.y - 3);
+  drawTip("right", ANCHOR.x + len, ANCHOR.y);
   drawGirl();
 }
 
