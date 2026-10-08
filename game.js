@@ -28,7 +28,7 @@ resize();
 const girl = new Image(); girl.src = "assets/girl.png";
 const logo = new Image(); logo.src = "assets/logo.png";
 const GIRL_Y = H - 140;
-const ANCHOR = { x: 100, y: GIRL_Y + 79 }; // finger tube starts hidden behind her hand
+const ANCHOR = { x: 108, y: GIRL_Y + 79 }; // finger tube starts hidden behind her hand
 // The original fingertip, cut from the hi-res art (2x backing pixels), pointing right.
 // It is drawn at the head of the finger, flipped/transposed so the light edge stays up/left.
 const tipImg = new Image(); tipImg.src = "assets/tip.png";
@@ -318,7 +318,11 @@ function drawFinger() {
   const n = Math.min(pts.length, Math.floor(st.len) + 1);
   if (n < 1) return;
   ctx.fillStyle = OUTLINE;
-  for (let i = 0; i < n; i++) ctx.fillRect(pts[i].x - 3, pts[i].y - 3, 5, 5);
+  // no top/left outline for the first few px, so it blends into her bare finger
+  for (let i = 0; i < n; i++) {
+    const o = i < 4 ? 2 : 3;
+    ctx.fillRect(pts[i].x - o, pts[i].y - o, o + 2, o + 2);
+  }
   ctx.fillStyle = SKIN;
   for (let i = 0; i < n; i++) ctx.fillRect(pts[i].x - 2, pts[i].y - 2, 2, 2);
   // knuckle creases every so often
